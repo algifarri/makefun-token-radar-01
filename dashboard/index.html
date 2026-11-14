@@ -1,53 +1,119 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A ranked board of pre-token protocols from a sealed DefiLlama snapshot: implied values from category market multiples, a conviction score, and a farm plan for every row.">
-<title>Pre-Token Radar — protocols that record no token, ranked by implied value</title>
+<title>Pre-Token Radar — Compass model</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div class="shell">
   <aside class="rail">
     <div class="brand">
-      <div class="brand-mark">◉</div>
+      <div class="brand-mark">◎</div>
       <div>
         <h1>Pre-Token Radar</h1>
-        <p class="brand-sub">Compass model · <span id="model-version">—</span></p>
+        <p class="sub">Which launch is worth farming next</p>
       </div>
     </div>
-    <p class="rail-note" id="as-of">Loading the sealed snapshot…</p>
-    <section class="rail-card">
-      <h2>How a row is priced</h2>
-      <p class="formula">implied = TVL × <b>category multiple</b> × momentum × maturity × breadth</p>
-      <p>The multiple is what the market already pays per TVL dollar for <em>trading</em> protocols in the same category (median, from this snapshot). The method panel below the board shows every multiple and its sample size.</p>
-    </section>
-    <section class="rail-card">
-      <h2>Reading the board</h2>
-      <ul class="legend">
-        <li><span class="tag tag-watch">Watchlist</span> above the $50M TVL floor, records no token</li>
-        <li><span class="tag tag-early">Early</span> below the floor, found by the radar</li>
-        <li><span class="tag tag-live">Trading</span> already has a token — shown at market value, never ranked</li>
-      </ul>
-      <p>“Records no token” is the snapshot's wording on purpose: the index lists no market cap, no CoinGecko id and no symbol for these protocols.</p>
-    </section>
-    <section class="rail-card">
-      <h2>Conviction, 0–100</h2>
-      <p>TVL scale 40 · momentum 20 · maturity 20 · chain breadth 10 · category evidence 10. Sort by it when you want the strongest all-round candidates rather than the largest implied values.</p>
-    </section>
+    <p class="rail-note">Every protocol below records no token yet. Each one is
+    priced by the Compass model from the snapshot's own figures — TVL, the
+    market-cap ratio its category's tokens already trade at, seven-day growth,
+    age and chain spread — never from a hand-kept list of names.</p>
+    <nav class="tabs" id="tabs" aria-label="Board views">
+      <button data-tab="full" class="active">Full board</button>
+      <button data-tab="watchlist">Watchlist</button>
+      <button data-tab="early">Early finds</button>
+      <button data-tab="trading">Already trading</button>
+    </nav>
+    <div class="rail-facts">
+      <div><span>Model</span><strong>Compass-1</strong></div>
+      <div><span>Snapshot</span><strong id="fact-asof">—</strong></div>
+      <div><span>Source</span><strong>DefiLlama protocols</strong></div>
+      <div><span>Watchlist floor</span><strong>$50,000,000 TVL</strong></div>
+    </div>
+    <button class="method-btn" id="method-btn">How the model works ↓</button>
+    <p class="rail-foot">Implied values are this entry's own claim, not a
+    prediction that a token will launch, or when. A protocol "records no token"
+    means its DefiLlama record carries none — not proof it has none.</p>
   </aside>
-  <main class="stage" id="stage">
-    <div class="stats" id="stats"></div>
-    <div class="controls" id="controls"></div>
-    <div class="table-wrap"><table id="board-table"></table></div>
-    <p class="count-line" id="count-line"></p>
-    <section class="method" id="method"></section>
-    <footer class="foot" id="foot"></footer>
+
+  <main class="main">
+    <section class="stats" id="stats" aria-label="Board summary"></section>
+
+    <section class="controls">
+      <input id="search" type="search" placeholder="Search name or slug…" aria-label="Search protocols">
+      <select id="category" aria-label="Filter by category"><option value="">All categories</option></select>
+      <select id="chain" aria-label="Filter by chain"><option value="">All chains</option></select>
+      <select id="sort" aria-label="Sort order">
+        <option value="implied">Sort: implied value ↓</option>
+        <option value="tvl">Sort: TVL ↓</option>
+        <option value="conviction">Sort: conviction ↓</option>
+        <option value="multiple">Sort: multiple ↓</option>
+        <option value="age">Sort: oldest first</option>
+        <option value="name">Sort: name A–Z</option>
+      </select>
+    </section>
+    <p class="count" id="count"></p>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Protocol</th>
+            <th class="num">TVL</th>
+            <th class="num">Implied value</th>
+            <th class="num">Multiple</th>
+            <th>Conviction</th>
+            <th class="num">7d</th>
+            <th class="num">Age</th>
+            <th>Chains</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+
+    <section class="method" id="method" hidden>
+      <h2>How Compass-1 prices a launch</h2>
+      <p class="formula">implied = TVL × category multiple × momentum × maturity × breadth</p>
+      <div class="method-grid">
+        <div>
+          <h3>Category multiple</h3>
+          <p>The median market-cap / TVL ratio of the snapshot's own trading
+          protocols in the same category (only TVL ≥ $1M counts), clamped to
+          0.02–3. A category with fewer than 2 trading peers uses the global
+          multiple instead: the median of all the category medians.</p>
+          <h3>Momentum · maturity · breadth</h3>
+          <p>Momentum is 1 + clamped 7-day change (−40%…+80%) × 0.35.
+          Maturity is 0.75 + min(age, 4 years) / 4 years × 0.5; an unknown
+          listing date counts as 365 days. Breadth adds 3% per extra chain,
+          up to six.</p>
+          <h3>Conviction 0–100</h3>
+          <p>TVL on a log scale (40), momentum (20), maturity (20), breadth
+          (10) and evidence (10): the evidence leg scores how many trading
+          peers the multiple rests on — 10+ peers earn 10, 5–9 earn 8, 3–4
+          earn 6, exactly 2 earn 4, and the global fallback earns 2.</p>
+        </div>
+        <div>
+          <h3>Every category multiple</h3>
+          <table class="mini">
+            <thead><tr><th>Category</th><th class="num">Multiple</th><th class="num">Peers</th></tr></thead>
+            <tbody id="multiples"></tbody>
+          </table>
+          <p class="selfcheck" id="selfcheck"></p>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
-<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
-<aside class="drawer" id="drawer" hidden></aside>
+
+<aside class="drawer" id="drawer" aria-label="Protocol detail" hidden>
+  <button class="drawer-close" id="drawer-close" aria-label="Close detail">✕</button>
+  <div id="drawer-body"></div>
+</aside>
+
 <script src="../data.js"></script>
 <script src="app.js"></script>
 </body>
