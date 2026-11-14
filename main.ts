@@ -7,6 +7,10 @@
 // last, with the vendored make.fun dossier library, so the scorer's rebuild matches byte
 // for byte.
 //
+// Before the dossier is written, the entry checks its own output against the scorer's caps:
+// the screenshot count and their file type, and the dashboard's file count and total bytes.
+// A corrupt or misplaced file fails here, in the open, instead of at scoring time.
+//
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input ../input/snapshot.json
 
@@ -70,10 +74,31 @@ function copyTree(from: string, to: string): string[] {
   return copied;
 }
 
+/** True when the file at `path` starts with a PNG or JPEG magic number. */
+function isImageFile(path: string): boolean {
+  const head = readFileSync(path).subarray(0, 4);
+  const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  const isJpeg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  return isPng || isJpeg;
+}
+
 const dashFiles = copyTree(join(here, 'dashboard'), join(out, 'dashboard'));
+const dashBytes = dashFiles.reduce((n, name) => n + statSync(join(out, 'dashboard', name)).size, 0);
+if (dashFiles.length > DASHBOARD_CAPS.max_files) {
+  process.stderr.write(`token radar: dashboard holds ${dashFiles.length} files: the gate takes at most ${DASHBOARD_CAPS.max_files}\n`);
+  process.exit(1);
+}
+if (dashBytes > DASHBOARD_CAPS.max_bytes) {
+  process.stderr.write(`token radar: dashboard source is ${dashBytes} bytes: the gate takes at most ${DASHBOARD_CAPS.max_bytes}\n`);
+  process.exit(1);
+}
 const shots = copyTree(join(here, 'screenshots'), join(out, 'screenshots'));
 if (shots.length < 3) {
   process.stderr.write(`token radar: screenshots/ holds ${shots.length} image${shots.length === 1 ? '' : 's'}: hand in 3, the board, a detail view and a filtered view\n`);
+  process.exit(1);
+}
+if (shots.length > SCREENSHOT_CAPS.max) {
+  process.stderr.write(`token radar: screenshots/ holds ${shots.length} images: the gate takes at most ${SCREENSHOT_CAPS.max}\n`);
   process.exit(1);
 }
 for (const name of shots) {
@@ -81,14 +106,17 @@ for (const name of shots) {
     process.stderr.write(`token radar: screenshots/${name}: a name is letters, digits and . _ -, 1 to 128 characters\n`);
     process.exit(1);
   }
+  if (!isImageFile(join(out, 'screenshots', name))) {
+    process.stderr.write(`token radar: screenshots/${name}: not a PNG or JPEG file\n`);
+    process.exit(1);
+  }
 }
 
 // The dossier is written last: the scorer rebuilds it from this /output and compares bytes.
 writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: DASHBOARD_CAPS }));
 
-const dashboardBytes = dashFiles.reduce((n, name) => n + statSync(join(out, 'dashboard', name)).size, 0);
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} trading set aside)\n` +
-    `token radar: dashboard source is ${dashboardBytes} bytes of the ${TEXT_MAX_BYTES} the dossier text holds, so the judge reads every file whole\n` +
+    `token radar: dashboard source is ${dashBytes} bytes of the ${TEXT_MAX_BYTES} the dossier text holds, so the judge reads every file whole\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (${dashFiles.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );

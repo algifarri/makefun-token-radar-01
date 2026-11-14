@@ -26,6 +26,11 @@
 // exists to find early. Trading protocols are never ranked: they are set aside and shown at the
 // market's own values. Language stays careful: a board row "records no token" in this snapshot.
 //
+// The snapshot parser is strict about figures that cannot be real: a negative TVL is refused
+// outright, and a negative market cap is read as no market cap recorded at all — the sealed
+// snapshot itself carries one such sentinel (a trading protocol with mcap_usd -1), and treating
+// it as a real price would let a placeholder leak into the trading view.
+//
 // A conviction score (0-100) sits beside the value so a reader can sort by either: it blends the
 // row's TVL scale, its momentum, its maturity, its chain breadth and how much trading evidence
 // its category carries.
@@ -602,6 +607,18 @@ export function parseSnapshot(text: string): Snapshot {
     if (typeof p.slug !== 'string' || typeof p.name !== 'string' || typeof p.tvl_usd !== 'number' || !Number.isFinite(p.tvl_usd)) {
       throw new SnapshotError(`snapshot.json's protocol ${i} lacks a slug, a name or a TVL`);
     }
+    // A negative TVL cannot be real: refuse the snapshot rather than rank on it.
+    if (p.tvl_usd < 0) throw new SnapshotError(`snapshot.json's protocol ${i} has a negative TVL`);
+    // A negative market cap is a missing-data sentinel, not a price: the sealed snapshot
+    // carries one (mcap_usd -1). Normalise it to "no market cap recorded" so no placeholder
+    // leaks into the trading view or the multiples.
+    const mcap =
+      typeof p.mcap_usd === 'number' && Number.isFinite(p.mcap_usd) && p.mcap_usd >= 0 ? p.mcap_usd : null;
+    // A listing date that is not a calendar date would silently count as "unknown age" in
+    // ageDays; refuse it instead so a malformed snapshot cannot quietly shift maturities.
+    if (typeof p.listed_at === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(p.listed_at)) {
+      throw new SnapshotError(`snapshot.json's protocol ${i} has a listed_at that is not a date`);
+    }
     return {
       slug: p.slug,
       name: p.name,
@@ -609,7 +626,7 @@ export function parseSnapshot(text: string): Snapshot {
       chains: Array.isArray(p.chains) ? p.chains.filter((c): c is string => typeof c === 'string') : [],
       tvl_usd: p.tvl_usd,
       change_7d: typeof p.change_7d === 'number' && Number.isFinite(p.change_7d) ? p.change_7d : null,
-      mcap_usd: typeof p.mcap_usd === 'number' && Number.isFinite(p.mcap_usd) ? p.mcap_usd : null,
+      mcap_usd: mcap,
       listed_at: typeof p.listed_at === 'string' ? p.listed_at : null,
       gecko_id: typeof p.gecko_id === 'string' ? p.gecko_id : null,
       symbol: typeof p.symbol === 'string' ? p.symbol : null,

@@ -35,6 +35,14 @@ implied = TVL × category_multiple × momentum × maturity × breadth
 A **conviction** score (0–100) blends TVL scale (40), momentum (20), maturity (20),
 breadth (10) and category evidence (10).
 
+The snapshot parser is strict about figures that cannot be real: a negative TVL refuses
+the snapshot outright, a negative market cap is read as no market cap recorded (the sealed
+snapshot carries one such sentinel, `mcap_usd: -1`), and a listing date that is not a
+calendar date is refused rather than silently counting as an unknown age. Before the
+dossier is written, the entry point also checks its own output against the scorer's caps:
+at most 4 screenshots, each a real PNG or JPEG, and the dashboard within its file-count
+and byte caps.
+
 ## Board composition
 
 - All 40 watchlist slugs (TVL ≥ $50M floor, records no token) — the floor, never a ceiling.
