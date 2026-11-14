@@ -8,13 +8,14 @@
 // for byte.
 //
 // Before the dossier is written, the entry checks its own output against the scorer's caps:
-// the screenshot count and their file type, and the dashboard's file count and total bytes.
-// A corrupt or misplaced file fails here, in the open, instead of at scoring time.
+// the screenshot count, each screenshot's byte size and file type, and the dashboard's file
+// count and total bytes. A corrupt or misplaced file fails here, in the open, instead of at
+// scoring time.
 //
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input ../input/snapshot.json
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
@@ -74,12 +75,18 @@ function copyTree(from: string, to: string): string[] {
   return copied;
 }
 
-/** True when the file at `path` starts with a PNG or JPEG magic number. */
+/** True when the file at `path` starts with a PNG or JPEG magic number; reads 4 bytes only. */
 function isImageFile(path: string): boolean {
-  const head = readFileSync(path).subarray(0, 4);
-  const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
-  const isJpeg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
-  return isPng || isJpeg;
+  const fd = openSync(path, 'r');
+  try {
+    const head = Buffer.alloc(4);
+    if (readSync(fd, head, 0, 4, 0) < 4) return false;
+    const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    const isJpeg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+    return isPng || isJpeg;
+  } finally {
+    closeSync(fd);
+  }
 }
 
 const dashFiles = copyTree(join(here, 'dashboard'), join(out, 'dashboard'));
@@ -106,7 +113,13 @@ for (const name of shots) {
     process.stderr.write(`token radar: screenshots/${name}: a name is letters, digits and . _ -, 1 to 128 characters\n`);
     process.exit(1);
   }
-  if (!isImageFile(join(out, 'screenshots', name))) {
+  const shotPath = join(out, 'screenshots', name);
+  const shotBytes = statSync(shotPath).size;
+  if (shotBytes > SCREENSHOT_CAPS.max_bytes) {
+    process.stderr.write(`token radar: screenshots/${name} is ${shotBytes} bytes: the gate takes at most ${SCREENSHOT_CAPS.max_bytes} per image\n`);
+    process.exit(1);
+  }
+  if (!isImageFile(shotPath)) {
     process.stderr.write(`token radar: screenshots/${name}: not a PNG or JPEG file\n`);
     process.exit(1);
   }
