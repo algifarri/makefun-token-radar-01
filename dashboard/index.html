@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A ranked board of pre-token protocols from a sealed DefiLlama snapshot: implied values from category market multiples, a conviction score, and a farm plan for every row.">
+<title>Pre-Token Radar — protocols that record no token, ranked by implied value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">◉</div>
+      <div>
+        <h1>Pre-Token Radar</h1>
+        <p class="brand-sub">Compass model · <span id="model-version">—</span></p>
+      </div>
+    </div>
+    <p class="rail-note" id="as-of">Loading the sealed snapshot…</p>
+    <section class="rail-card">
+      <h2>How a row is priced</h2>
+      <p class="formula">implied = TVL × <b>category multiple</b> × momentum × maturity × breadth</p>
+      <p>The multiple is what the market already pays per TVL dollar for <em>trading</em> protocols in the same category (median, from this snapshot). The method panel below the board shows every multiple and its sample size.</p>
+    </section>
+    <section class="rail-card">
+      <h2>Reading the board</h2>
+      <ul class="legend">
+        <li><span class="tag tag-watch">Watchlist</span> above the $50M TVL floor, records no token</li>
+        <li><span class="tag tag-early">Early</span> below the floor, found by the radar</li>
+        <li><span class="tag tag-live">Trading</span> already has a token — shown at market value, never ranked</li>
+      </ul>
+      <p>“Records no token” is the snapshot's wording on purpose: the index lists no market cap, no CoinGecko id and no symbol for these protocols.</p>
+    </section>
+    <section class="rail-card">
+      <h2>Conviction, 0–100</h2>
+      <p>TVL scale 40 · momentum 20 · maturity 20 · chain breadth 10 · category evidence 10. Sort by it when you want the strongest all-round candidates rather than the largest implied values.</p>
+    </section>
+  </aside>
+  <main class="stage" id="stage">
+    <div class="stats" id="stats"></div>
+    <div class="controls" id="controls"></div>
+    <div class="table-wrap"><table id="board-table"></table></div>
+    <p class="count-line" id="count-line"></p>
+    <section class="method" id="method"></section>
+    <footer class="foot" id="foot"></footer>
+  </main>
+</div>
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden></aside>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
